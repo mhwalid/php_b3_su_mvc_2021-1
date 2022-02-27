@@ -2,7 +2,7 @@
 
 namespace App\Routing;
 
-use App\Routing\Attribute\Route;
+use App\Routing\Attribute\Route as RouteAttribute;
 use App\Utils\Filesystem;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
@@ -10,6 +10,7 @@ use ReflectionMethod;
 
 class Router
 {
+  /** @var Route[] */
   private $routes = [];
   private ContainerInterface $container;
   private const CONTROLLERS_NAMESPACE = "App\\Controller\\";
@@ -30,20 +31,9 @@ class Router
    * @param string $method
    * @return self
    */
-  public function addRoute(
-    string $name,
-    string $url,
-    string $httpMethod,
-    string $controller,
-    string $method
-  ): self {
-    $this->routes[] = [
-      'name' => $name,
-      'url' => $url,
-      'http_method' => $httpMethod,
-      'controller' => $controller,
-      'method' => $method
-    ];
+  public function addRoute(Route $route): self
+  {
+    $this->routes[] = $route;
 
     return $this;
   }
@@ -64,13 +54,13 @@ class Router
       throw new RouteNotFoundException();
     }
 
-    $controllerName = $route['controller'];
+    $controllerName = $route->getController();
     $constructorParams = $this->getMethodServiceParams($controllerName, '__construct');
     $controller = new $controllerName(...$constructorParams);
 
-    $method = $route['method'];
+    $method = $route->getMethod();
     $servicesParams = $this->getMethodServiceParams($controllerName, $method);
-    $getParams = $route['params'];
+    $getParams = $route->getGetParams();
 
     call_user_func_array(
       [$controller, $method],
@@ -83,16 +73,16 @@ class Router
    *
    * @param string $uri
    * @param string $httpMethod
-   * @return array|null
+   * @return Route|null
    */
-  public function getRoute(string $uri, string $httpMethod): ?array
+  public function getRoute(string $uri, string $httpMethod): ?Route
   {
     foreach ($this->routes as $route) {
       $matches = [];
-      if ($this->match($uri, $route['url'], $matches) && $route['http_method'] === $httpMethod) {
+      if ($this->match($uri, $route->getPath(), $matches) && $route->getHttpMethod() === $httpMethod) {
         $matches = array_filter($matches, fn ($key) => !is_int($key), ARRAY_FILTER_USE_KEY);
 
-        $route['params'] = $matches;
+        $route->setGetParams($matches);
         return $route;
       }
     }
@@ -157,19 +147,19 @@ class Router
     $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
 
     foreach ($methods as $method) {
-      $attributes = $method->getAttributes(Route::class);
+      $attributes = $method->getAttributes(RouteAttribute::class);
 
       foreach ($attributes as $attribute) {
-        /** @var Route */
+        /** @var RouteAttribute */
         $route = $attribute->newInstance();
 
-        $this->addRoute(
-          $route->getName(),
+        $this->addRoute(new Route(
           $route->getPath(),
-          $route->getHttpMethod(),
           $fqcn,
-          $method->getName()
-        );
+          $method->getName(),
+          $route->getHttpMethod(),
+          $route->getName()
+        ));
       }
     }
   }

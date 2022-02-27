@@ -2,6 +2,7 @@
 
 namespace App\Tests\Routing;
 
+use App\Routing\Route;
 use App\Routing\Router;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -24,16 +25,18 @@ class RouterTest extends TestCase
 
   public function testGetRoute()
   {
-    $this->router->addRoute(
-      'user_edit',
+    $route = new Route(
       '/user/edit/{id}',
-      'GET',
       'TestController',
-      'testMethod'
+      'testMethod',
+      'GET',
+      'user_edit',
     );
 
+    $this->router->addRoute($route);
+
     $route = $this->router->getRoute('/user/edit/123', 'GET');
-    $this->assertIsArray($route);
+    $this->assertInstanceOf(Route::class, $route);
   }
 
   /**
