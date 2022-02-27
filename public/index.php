@@ -13,6 +13,7 @@ if (
 use App\Config\Connection;
 use App\Config\TwigEnvironment;
 use App\DependencyInjection\Container;
+use App\Routing\ArgumentResolver;
 use App\Routing\RouteNotFoundException;
 use App\Routing\Router;
 use Doctrine\ORM\EntityManager;
@@ -38,7 +39,7 @@ $container->set(EntityManager::class, $entityManager);
 $container->set(Environment::class, $twig);
 
 // Routage
-$router = new Router($container);
+$router = new Router($container, new ArgumentResolver());
 $router->registerRoutes();
 
 if (php_sapi_name() === 'cli') {

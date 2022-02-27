@@ -13,12 +13,16 @@ class Router
   /** @var Route[] */
   private $routes = [];
   private ContainerInterface $container;
+  private ArgumentResolver $argumentResolver;
   private const CONTROLLERS_NAMESPACE = "App\\Controller\\";
   private const CONTROLLERS_DIR = __DIR__ . "/../Controller";
 
-  public function __construct(ContainerInterface $container)
-  {
+  public function __construct(
+    ContainerInterface $container,
+    ArgumentResolver $argumentResolver
+  ) {
     $this->container = $container;
+    $this->argumentResolver = $argumentResolver;
   }
 
   /**
@@ -78,26 +82,15 @@ class Router
   public function getRoute(string $uri, string $httpMethod): ?Route
   {
     foreach ($this->routes as $route) {
-      $matches = [];
-      if ($this->match($uri, $route->getPath(), $matches) && $route->getHttpMethod() === $httpMethod) {
-        $matches = array_filter($matches, fn ($key) => !is_int($key), ARRAY_FILTER_USE_KEY);
+      if ($this->argumentResolver->match($uri, $route) && $route->getHttpMethod() === $httpMethod) {
+        $params = $this->argumentResolver->getGetParams($uri, $route);
 
-        $route->setGetParams($matches);
+        $route->setGetParams($params);
         return $route;
       }
     }
 
     return null;
-  }
-
-  public function match(string $url, string $routeUrl, array &$matches): bool
-  {
-    // URL parameters into capturing regex parts
-    $routeRegex = preg_replace("/\{(\w+)\}/", '(?P<${1}>.+)', $routeUrl);
-    // Slashes escaping, add regex delimiters
-    $routeRegex = "/^" . str_replace("/", "\/", $routeRegex) . "$/";
-
-    return preg_match($routeRegex, $url, $matches) === 1;
   }
 
   /**
@@ -131,11 +124,11 @@ class Router
     $classNames = Filesystem::getClassNames(self::CONTROLLERS_DIR);
 
     foreach ($classNames as $class) {
-      $this->registerRoute($class);
+      $this->registerClassRoutes($class);
     }
   }
 
-  public function registerRoute(string $className): void
+  public function registerClassRoutes(string $className): void
   {
     $fqcn = self::CONTROLLERS_NAMESPACE . $className;
     $reflection = new ReflectionClass($fqcn);

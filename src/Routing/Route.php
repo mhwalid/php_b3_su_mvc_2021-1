@@ -20,6 +20,16 @@ class Route extends AbstractRoute
     $this->method = $method;
   }
 
+  public function getRegex(): string
+  {
+    // URL parameters into capturing regex parts
+    $routeRegex = preg_replace("/\{(\w+)\}/", '(?P<${1}>.+)', $this->getPath());
+    // Slashes escaping, add regex delimiters
+    $routeRegex = "/^" . str_replace("/", "\/", $routeRegex) . "$/";
+
+    return $routeRegex;
+  }
+
   public function getGetParams(): array
   {
     return $this->getParams;
