@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Routing\Attribute\Route;
+use Doctrine\ORM\EntityManager;
 
 class UserController extends AbstractController
 {
@@ -16,5 +17,11 @@ class UserController extends AbstractController
     $users = [];
 
     echo $this->twig->render('user/list.html.twig', ['users' => $users]);
+  }
+
+  #[Route(path: "/user/edit/{id}", name: "user_edit")]
+  public function edit(EntityManager $em, int $id)
+  {
+    var_dump($id);
   }
 }

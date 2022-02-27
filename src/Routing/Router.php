@@ -49,24 +49,6 @@ class Router
   }
 
   /**
-   * Get a route. Returns null if not found
-   *
-   * @param string $uri
-   * @param string $httpMethod
-   * @return array|null
-   */
-  public function getRoute(string $uri, string $httpMethod): ?array
-  {
-    foreach ($this->routes as $route) {
-      if ($route['url'] === $uri && $route['http_method'] === $httpMethod) {
-        return $route;
-      }
-    }
-
-    return null;
-  }
-
-  /**
    * Executes a route based on provided URI and HTTP method.
    *
    * @param string $uri
@@ -83,16 +65,49 @@ class Router
     }
 
     $controllerName = $route['controller'];
-    $constructorParams = $this->getMethodParams($controllerName, '__construct');
+    $constructorParams = $this->getMethodServiceParams($controllerName, '__construct');
     $controller = new $controllerName(...$constructorParams);
 
     $method = $route['method'];
-    $params = $this->getMethodParams($controllerName, $method);
+    $servicesParams = $this->getMethodServiceParams($controllerName, $method);
+    $getParams = $route['params'];
 
     call_user_func_array(
       [$controller, $method],
-      $params
+      array_merge($servicesParams, $getParams)
     );
+  }
+
+  /**
+   * Get a route. Returns null if not found
+   *
+   * @param string $uri
+   * @param string $httpMethod
+   * @return array|null
+   */
+  public function getRoute(string $uri, string $httpMethod): ?array
+  {
+    foreach ($this->routes as $route) {
+      $matches = [];
+      if ($this->match($uri, $route['url'], $matches) && $route['http_method'] === $httpMethod) {
+        $matches = array_filter($matches, fn ($key) => !is_int($key), ARRAY_FILTER_USE_KEY);
+
+        $route['params'] = $matches;
+        return $route;
+      }
+    }
+
+    return null;
+  }
+
+  public function match(string $url, string $routeUrl, array &$matches): bool
+  {
+    // URL parameters into capturing regex parts
+    $routeRegex = preg_replace("/\{(\w+)\}/", '(?P<${1}>.+)', $routeUrl);
+    // Slashes escaping, add regex delimiters
+    $routeRegex = "/^" . str_replace("/", "\/", $routeRegex) . "$/";
+
+    return preg_match($routeRegex, $url, $matches) === 1;
   }
 
   /**
@@ -102,7 +117,7 @@ class Router
    * @param string $method name of method
    * @return array
    */
-  private function getMethodParams(string $controller, string $method): array
+  private function getMethodServiceParams(string $controller, string $method): array
   {
     $methodInfos = new ReflectionMethod($controller . '::' . $method);
     $methodParameters = $methodInfos->getParameters();
